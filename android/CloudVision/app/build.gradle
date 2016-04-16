@@ -32,5 +32,6 @@ dependencies {
     compile 'com.google.api-client:google-api-client-android:1.20.0' exclude module: 'httpclient'
     compile 'com.google.http-client:google-http-client-gson:1.20.0' exclude module: 'httpclient'
 
+    // Google Cloud Vision
     compile 'com.google.apis:google-api-services-vision:v1-rev2-1.21.0'
 }

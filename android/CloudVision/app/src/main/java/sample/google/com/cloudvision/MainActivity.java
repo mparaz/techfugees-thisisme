@@ -37,7 +37,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -153,14 +155,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private class Result {
+        String message;
+        byte[] imageBytes;
+        String classification;
+    }
+
+
     private void callCloudVision(final Bitmap bitmap) throws IOException {
         // Switch text to loading
         mImageDetails.setText(R.string.loading_message);
 
         // Do the real work in an async task, because we need to use the network anyway
-        new AsyncTask<Object, Void, String>() {
+        new AsyncTask<Object, Void, Result>() {
             @Override
-            protected String doInBackground(Object... params) {
+            protected Result doInBackground(Object... params) {
                 try {
                     HttpTransport httpTransport = AndroidHttp.newCompatibleTransport();
                     JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
@@ -172,31 +181,27 @@ public class MainActivity extends AppCompatActivity {
 
                     BatchAnnotateImagesRequest batchAnnotateImagesRequest =
                             new BatchAnnotateImagesRequest();
-                    batchAnnotateImagesRequest.setRequests(new ArrayList<AnnotateImageRequest>() {{
-                        AnnotateImageRequest annotateImageRequest = new AnnotateImageRequest();
 
-                        // Add the image
-                        Image base64EncodedImage = new Image();
-                        // Convert the bitmap to a JPEG
-                        // Just in case it's a format that Android understands but Cloud Vision
-                        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
-                        byte[] imageBytes = byteArrayOutputStream.toByteArray();
+                    AnnotateImageRequest annotateImageRequest = new AnnotateImageRequest();
 
-                        // Base64 encode the JPEG
-                        base64EncodedImage.encodeContent(imageBytes);
-                        annotateImageRequest.setImage(base64EncodedImage);
+                    // Add the image
+                    Image base64EncodedImage = new Image();
+                    // Convert the bitmap to a JPEG
+                    // Just in case it's a format that Android understands but Cloud Vision
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
+                    byte[] imageBytes = byteArrayOutputStream.toByteArray();
 
-                        // add the features we want
-                        annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
-                            Feature textDetection = new Feature();
-                            textDetection.setType("TEXT_DETECTION");
-                            add(textDetection);
-                        }});
+                    // Base64 encode the JPEG
+                    base64EncodedImage.encodeContent(imageBytes);
+                    annotateImageRequest.setImage(base64EncodedImage);
 
-                        // Add the list of one thing to the request
-                        add(annotateImageRequest);
-                    }});
+                    // add the features we want
+                    Feature textDetection = new Feature();
+                    textDetection.setType("TEXT_DETECTION");
+                    annotateImageRequest.setFeatures(Arrays.asList(textDetection));
+
+                    batchAnnotateImagesRequest.setRequests(Arrays.asList(annotateImageRequest));
 
                     Vision.Images.Annotate annotateRequest =
                             vision.images().annotate(batchAnnotateImagesRequest);
@@ -205,22 +210,49 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "created Cloud Vision request object, sending request");
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
-                    return convertResponseToString(response);
 
+                    final Result result = convertResult(response);
+                    result.imageBytes = imageBytes;
+                    return result;
                 } catch (GoogleJsonResponseException e) {
                     Log.d(TAG, "failed to make API request because " + e.getContent());
                 } catch (IOException e) {
                     Log.d(TAG, "failed to make API request because of other IOException " +
                             e.getMessage());
                 }
-                return "Cloud Vision API request failed. Check logs for details.";
+                final Result result = new Result();
+                result.message = "Cloud Vision API request failed. Check logs for details.";
+                result.imageBytes = new byte[0];
+                return result;
             }
 
-            protected void onPostExecute(String result) {
-                mImageDetails.setText(result);
+            protected void onPostExecute(Result result) {
+                mImageDetails.setText(result.message);
+                uploadToCloud(result);
             }
         }.execute();
     }
+
+    // XXX We no longer have the original filename so just create a unique UUID.
+    // We can't use the phone filename anyway because there will be collisions.
+    // Use the classification as a prefix.
+    private void uploadToCloud(Result result) {
+        new AsyncTask<Result, Void, String>() {
+            @Override
+            protected String doInBackground(Result... params) {
+                final String filename = params[0].classification + "_" +
+                        UUID.randomUUID().toString();
+
+                return "Uploaded to cloud";
+            }
+
+            @Override
+            protected void onPostExecute(String s) {
+                mImageDetails.setText("Uploaded to cloud");
+            }
+        }.execute();
+    }
+
 
     public Bitmap scaleBitmapDown(Bitmap bitmap, int maxDimension) {
 
@@ -242,29 +274,31 @@ public class MainActivity extends AppCompatActivity {
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
 
-    // TODO Replace this with taking action on the data
-    private String convertResponseToString(BatchAnnotateImagesResponse response) {
+    private Result convertResult(BatchAnnotateImagesResponse response) {
         String message = "I found the text:";
 
-        boolean foundText = false;
+        boolean isMedical = false;
 
         List<EntityAnnotation> labels = response.getResponses().get(0).getTextAnnotations();
         if (labels != null) {
             for (EntityAnnotation label : labels) {
                 String text = label.getDescription().toUpperCase();
                 if (text.contains("MEDICAL EXAMINATION") || text.contains("APPLICANT'S DETAILS")) {
-                    foundText = true;
+                    isMedical = true;
                     break;
                 }
             }
         }
 
-        if (foundText) {
-            message = "Found Medical Examination";
+        final Result result = new Result();
+        if (isMedical) {
+            result.message = "Found Medical Examination";
+            result.classification = "M";
         } else {
-            message = "Found Other";
+            result.message = "Found Other";
+            result.classification = "O";
         }
 
-        return message;
+        return result;
     }
 }
