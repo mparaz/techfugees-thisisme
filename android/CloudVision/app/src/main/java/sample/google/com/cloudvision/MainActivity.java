@@ -38,9 +38,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String CLOUD_VISION_API_KEY = "YOUR_API_KEY";
+    private static final String CLOUD_VISION_API_KEY = "AIzaSyBFXXBZIUePL3VS4Hh--iSlfj7L1XFjbfQ";
     public static final String FILE_NAME = "temp.jpg";
 
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -54,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Enable logging for API call
+        Logger.getLogger(HttpTransport.class.getName()).setLevel(Level.ALL);
+
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -131,6 +137,8 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // scale the image to 800px to save on bandwidth
                 Bitmap bitmap = scaleBitmapDown(MediaStore.Images.Media.getBitmap(getContentResolver(), uri), 1200);
+                // No scale down
+//                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
 
                 callCloudVision(bitmap);
                 mMainImage.setImageBitmap(bitmap);
@@ -181,10 +189,9 @@ public class MainActivity extends AppCompatActivity {
 
                         // add the features we want
                         annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
-                            Feature labelDetection = new Feature();
-                            labelDetection.setType("LABEL_DETECTION");
-                            labelDetection.setMaxResults(10);
-                            add(labelDetection);
+                            Feature textDetection = new Feature();
+                            textDetection.setType("TEXT_DETECTION");
+                            add(textDetection);
                         }});
 
                         // Add the list of one thing to the request
@@ -235,14 +242,14 @@ public class MainActivity extends AppCompatActivity {
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
 
+    // TODO Replace this with taking action on the data
     private String convertResponseToString(BatchAnnotateImagesResponse response) {
-        String message = "I found these things:\n\n";
+        String message = "I found the text:";
 
-        List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
+        List<EntityAnnotation> labels = response.getResponses().get(0).getTextAnnotations();
         if (labels != null) {
             for (EntityAnnotation label : labels) {
-                message += String.format("%.3f: %s", label.getScore(), label.getDescription());
-                message += "\n";
+                message += label.getDescription() + "\n";
             }
         } else {
             message += "nothing";
