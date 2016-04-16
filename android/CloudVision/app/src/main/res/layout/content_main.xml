@@ -26,7 +26,27 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
+                android:textSize="24sp"
                 android:text="What form did you fill out?"/>
+
+
+            <TextView
+                android:id="@+id/category_medical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:textColor="#ff0000"
+                android:textSize="32sp"
+                android:text="MEDICAL"/>
+
+            <TextView
+                android:id="@+id/category_other"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:color="@android:color/holo_green_dark"
+                android:textSize="32sp"
+                android:text="OTHER"/>
 
             <ImageView
                 android:id="@+id/main_image"

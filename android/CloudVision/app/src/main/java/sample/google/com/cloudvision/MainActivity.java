@@ -246,13 +246,23 @@ public class MainActivity extends AppCompatActivity {
     private String convertResponseToString(BatchAnnotateImagesResponse response) {
         String message = "I found the text:";
 
+        boolean foundText = false;
+
         List<EntityAnnotation> labels = response.getResponses().get(0).getTextAnnotations();
         if (labels != null) {
             for (EntityAnnotation label : labels) {
-                message += label.getDescription() + "\n";
+                String text = label.getDescription().toUpperCase();
+                if (text.contains("MEDICAL EXAMINATION") || text.contains("APPLICANT'S DETAILS")) {
+                    foundText = true;
+                    break;
+                }
             }
+        }
+
+        if (foundText) {
+            message = "Found Medical Examination";
         } else {
-            message += "nothing";
+            message = "Found Other";
         }
 
         return message;
