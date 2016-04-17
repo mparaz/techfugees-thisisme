@@ -287,6 +287,10 @@ public class MainActivity extends AppCompatActivity {
 
             protected void onPostExecute(Result result) {
                 mImageDetails.setText(result.message);
+
+                // Show that we detected
+                popup(result.message);
+
                 uploadToCloud(result);
             }
         }.execute();
@@ -330,6 +334,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            // TODO Should say what we have uploaded.
             @Override
             protected void onPostExecute(String s) {
                 mImageDetails.setText("Uploaded to cloud");
