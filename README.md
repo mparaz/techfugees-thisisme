@@ -1,3 +1,10 @@
+THIS IS ME at Techfugees
+========================
+
+Based on the Android app in `android/CloudVision`
+
+Original Readme
+===============
 
 # Google Cloud Vision API examples
 
