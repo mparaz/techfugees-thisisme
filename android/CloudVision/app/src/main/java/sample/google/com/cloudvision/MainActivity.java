@@ -19,8 +19,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.android.AndroidAuthSession;
+import com.dropbox.client2.exception.DropboxException;
+import com.dropbox.client2.session.AppKeyPair;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
@@ -33,6 +38,7 @@ import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -55,6 +61,17 @@ public class MainActivity extends AppCompatActivity {
     private TextView mImageDetails;
     private ImageView mMainImage;
 
+    // Dropbox
+
+    private TextView mAuthenticate;
+
+    final static private String APP_KEY = "4rxdysnwncexwdj";
+    final static private String APP_SECRET = "rx312z832k99b9t";
+
+    private DropboxAPI<AndroidAuthSession> mDBApi;
+
+    private String mAccessToken;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,6 +87,12 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
+                if (!mDBApi.getSession().authenticationSuccessful()) {
+                    Toast.makeText(getApplicationContext(), "Not logged in to Dropbox", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
                 builder
                         .setMessage(R.string.dialog_select_prompt)
@@ -91,6 +114,22 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = (TextView) findViewById(R.id.image_details);
         mMainImage = (ImageView) findViewById(R.id.main_image);
+
+        // Dropbox authentication
+        AppKeyPair appKeys = new AppKeyPair(APP_KEY, APP_SECRET);
+        AndroidAuthSession session = new AndroidAuthSession(appKeys);
+        mDBApi = new DropboxAPI<AndroidAuthSession>(session);
+
+        mAuthenticate = (TextView) findViewById(R.id.button_authenticate);
+        Log.d(TAG, "Authenticate button: " + mAuthenticate.toString());
+
+        mAuthenticate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d(TAG, "Starting Dropbox auth");
+                mDBApi.getSession().startOAuth2Authentication(MainActivity.this);
+            }
+        });
     }
 
     public void startGalleryChooser() {
@@ -166,6 +205,9 @@ public class MainActivity extends AppCompatActivity {
         // Switch text to loading
         mImageDetails.setText(R.string.loading_message);
 
+        // Toast must be in UI thread
+        Toast.makeText(getApplicationContext(), "Recognising Text", Toast.LENGTH_SHORT).show();
+
         // Do the real work in an async task, because we need to use the network anyway
         new AsyncTask<Object, Void, Result>() {
             @Override
@@ -237,20 +279,45 @@ public class MainActivity extends AppCompatActivity {
     // We can't use the phone filename anyway because there will be collisions.
     // Use the classification as a prefix.
     private void uploadToCloud(Result result) {
+        Toast.makeText(getApplicationContext(), "Uploading to Dropbox", Toast.LENGTH_SHORT).show();
+
+        Log.d(TAG, "uploading to Dropbox: " + result.classification + ", " +
+                result.imageBytes.length + " bytes");
+
         new AsyncTask<Result, Void, String>() {
             @Override
             protected String doInBackground(Result... params) {
-                final String filename = params[0].classification + "_" +
-                        UUID.randomUUID().toString();
 
-                return "Uploaded to cloud";
+                // TODO When I started, params.length was 0, why?
+                if (params.length == 0) {
+                    return "Finished";
+                }
+
+//                Log.d(TAG, "doInBackground called with: " + Arrays.toString(params) +
+//                        " of length " + params.length);
+//                return "DONE";
+
+                // TODO Assume JPG filename for now. Should pass it later.
+                final String filename = "/" + params[0].classification + "_" +
+                        UUID.randomUUID().toString() + ".jpeg";
+
+                try {
+                    DropboxAPI.Entry entry = mDBApi.putFile(filename, new ByteArrayInputStream(params[0].imageBytes),
+                            params[0].imageBytes.length, null, null);
+                    // entry now contains the information.
+                    Log.e(TAG, "Dropbox uploaded: " +  entry.rev);
+                    return "Uploaded to cloud";
+                } catch (DropboxException e) {
+                    Log.e(TAG, "Dropbox fail", e);
+                    return "Cloud upload failed";
+                }
             }
 
             @Override
             protected void onPostExecute(String s) {
                 mImageDetails.setText("Uploaded to cloud");
             }
-        }.execute();
+        }.execute(result);
     }
 
 
@@ -300,5 +367,30 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return result;
+    }
+
+    // When we get back from Dropbox
+    protected void onResume() {
+        super.onResume();
+
+        if (mDBApi.getSession().authenticationSuccessful()) {
+            try {
+                mAuthenticate.setText("Logged into Dropbox");
+
+                // Required to complete auth, sets the access token on the session
+                mDBApi.getSession().finishAuthentication();
+
+                String accessToken = mDBApi.getSession().getOAuth2AccessToken();
+
+                // Popup auth status
+                Log.d(TAG, "Dropbox authentication done");
+                Toast.makeText(getApplicationContext(), "Dropbox now logged in", Toast.LENGTH_SHORT).show();
+
+                // Should store the token safely in Android
+                mAccessToken = accessToken;
+            } catch (IllegalStateException e) {
+                Log.i("DbAuthLog", "Error authenticating", e);
+            }
+        }
     }
 }
