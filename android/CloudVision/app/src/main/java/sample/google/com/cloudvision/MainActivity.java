@@ -72,6 +72,23 @@ public class MainActivity extends AppCompatActivity {
 
     private String mAccessToken;
 
+    private void popup(String message) {
+        // Popup for demo purposes
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder
+                .setMessage(message)
+                .setPositiveButton("Yeah got it", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Do nothing in this popup
+                    }
+                });
+        builder.create().show();
+
+        // Popup for actual flow
+//        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
 
                 if (!mDBApi.getSession().authenticationSuccessful()) {
-                    Toast.makeText(getApplicationContext(), "Not logged in to Dropbox", Toast.LENGTH_SHORT).show();
+                    popup("Not logged in to Dropbox");
                     return;
                 }
 
@@ -206,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         mImageDetails.setText(R.string.loading_message);
 
         // Toast must be in UI thread
-        Toast.makeText(getApplicationContext(), "Recognising Text", Toast.LENGTH_SHORT).show();
+        popup("Recognising Text");
 
         // Do the real work in an async task, because we need to use the network anyway
         new AsyncTask<Object, Void, Result>() {
@@ -279,7 +296,7 @@ public class MainActivity extends AppCompatActivity {
     // We can't use the phone filename anyway because there will be collisions.
     // Use the classification as a prefix.
     private void uploadToCloud(Result result) {
-        Toast.makeText(getApplicationContext(), "Uploading to Dropbox", Toast.LENGTH_SHORT).show();
+        popup("Uploading to Dropbox");
 
         Log.d(TAG, "uploading to Dropbox: " + result.classification + ", " +
                 result.imageBytes.length + " bytes");
@@ -384,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
 
                 // Popup auth status
                 Log.d(TAG, "Dropbox authentication done");
-                Toast.makeText(getApplicationContext(), "Dropbox now logged in", Toast.LENGTH_SHORT).show();
+                popup("Dropbox now logged in");
 
                 // Should store the token safely in Android
                 mAccessToken = accessToken;
