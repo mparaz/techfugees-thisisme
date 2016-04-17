@@ -1,10 +1,16 @@
 THIS IS ME at Techfugees
 ========================
 
-Based on the Android app in `android/CloudVision`
+The Android app is in`android/CloudVision.
 
-Original Readme
-===============
+Thanks to Google's Cloud Vision sample. 
+https://github.com/GoogleCloudPlatform/cloud-vision
+
+Added workflow and Dropbox API.
+
+
+Original Readme from Google
+===========================
 
 # Google Cloud Vision API examples
 
